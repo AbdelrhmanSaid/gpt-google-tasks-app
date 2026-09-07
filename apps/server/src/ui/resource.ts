@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 import {
@@ -6,22 +7,23 @@ import {
 } from '@modelcontextprotocol/ext-apps/server';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
-export const taskResourceUri = 'ui://google-tasks/task-cards.html';
+// Load one immutable widget per server process. Its content hash changes the
+// resource URI whenever a deployment changes the UI, invalidating host caches.
+const html = await readFile(
+  new URL('../../../ui/dist-widget/widget.html', import.meta.url),
+  'utf8',
+).catch(() => {
+  throw new Error(
+    'Task widget is missing. Run npm run build -w @tasks/ui first.',
+  );
+});
+
+const version = createHash('sha256').update(html).digest('hex').slice(0, 16);
+
+export const taskResourceUri = `ui://google-tasks/task-cards-${version}.html`;
 
 export function registerTaskResource(server: McpServer): void {
   registerAppResource(server, 'Task cards', taskResourceUri, {}, async () => {
-    // src/ui and dist/ui have the same depth. The widget is self-contained,
-    // so the host needs no access to localhost assets or third-party CDNs.
-    const path = new URL(
-      '../../../ui/dist-widget/widget.html',
-      import.meta.url,
-    );
-    const html = await readFile(path, 'utf8').catch(() => {
-      throw new Error(
-        'Task widget is missing. Run npm run build -w @tasks/ui first.',
-      );
-    });
-
     return {
       contents: [
         {

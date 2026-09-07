@@ -29,6 +29,12 @@ The operator must already have signed in with an allowlisted Google account. The
 
 Configure that ID in ChatGPT with token endpoint authentication method `none`. The client must use PKCE. The registration belongs to the service, so disconnecting the operator does not remove everybody else's client configuration.
 
+ChatGPT currently shows `https://chatgpt.com/connector_platform_oauth_redirect`
+for this server because it advertises RFC 9207 issuer identification. The CLI
+accepts this exact stable callback as well as callback-ID-specific URLs. Always
+copy the value displayed by ChatGPT. Include `offline_access` in base scopes so
+it is requested even when ChatGPT selects tools with their own scope tags.
+
 The CLI also accepts `http://127.0.0.1:5173/oauth-test.html` as a reserved local test redirect using native-app redirect rules. It is used for protocol/UI review, not a deployed callback page. The automated OAuth test uses its own isolated client and database.
 
 ## Protocol boundary

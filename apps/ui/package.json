@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build && npm run build:widget",
     "build:widget": "vite build --config vite.widget.config.ts",
     "preview": "vite preview --host 127.0.0.1",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test scripts/*.test.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.7.5",

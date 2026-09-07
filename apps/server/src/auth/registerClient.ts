@@ -26,7 +26,8 @@ const localTest =
   callback.pathname === '/oauth-test.html';
 const chatgpt =
   callback.origin === 'https://chatgpt.com' &&
-  /^\/connector\/oauth\/[^/]+$/.test(callback.pathname);
+  (callback.pathname === '/connector_platform_oauth_redirect' ||
+    /^\/connector\/oauth\/[^/]+$/.test(callback.pathname));
 
 if (
   (!localTest && !chatgpt) ||

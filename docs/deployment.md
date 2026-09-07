@@ -75,6 +75,34 @@ Nginx access logging is disabled for app requests because OAuth URLs contain cod
 
 ## Updates and rollback
 
+The VPS has a Git checkout at `/opt/google-tasks/repository` and the
+`google-tasks-deploy` command installed from `deploy/update.sh`. After pushing
+changes to GitHub's `master` branch, SSH in as `ubuntu` and run:
+
+```sh
+google-tasks-deploy
+```
+
+The command pulls with `git pull --ff-only`, copies that commit into a new
+release, installs dependencies, builds, and runs all checks. It then switches
+`current` atomically and restarts the service. A failed restart or health check
+restores the previous release. Failed builds leave the running service alone.
+The deployed commit is saved in `current/REVISION`; previous releases remain
+available for rollback. Production secrets and the database stay outside Git.
+
+Refresh Google Tasks in ChatGPT's plugin settings after changing tools or UI.
+The widget resource URI includes a content hash to invalidate cached HTML.
+
+To bootstrap the command on another server, create `/opt/google-tasks/repository`
+owned by `ubuntu` (leave it empty for the first clone), ensure `releases` is also
+owned by `ubuntu`, and install `deploy/update.sh` as
+`/usr/local/bin/google-tasks-deploy` with root ownership and mode `755`.
+Reinstall that command when changing the deployment script itself.
+
+The update command does not run database migrations. If a future release changes
+the authentication schema, follow the backup and migration procedure below
+before activating it.
+
 Build and test each update in a new release directory before changing `current`.
 Record its Git commit. Stop the service before backing up the database or running
 migrations. Copy the entire state directory, including any SQLite WAL files, to a

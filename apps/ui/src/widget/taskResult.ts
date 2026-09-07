@@ -25,7 +25,8 @@ const snapshotSchema: z.ZodType<TaskSnapshot> = z.discriminatedUnion(
     z.object({
       sampleData: z.literal(false),
       tasks: z.array(taskSchema.extend({ etag: z.string() })),
-      nextPageToken: z.string().nullable(),
+      // ChatGPT can omit null fields when forwarding structured tool results.
+      nextPageToken: z.string().nullable().default(null),
     }),
   ],
 );
