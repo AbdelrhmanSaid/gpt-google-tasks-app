@@ -1,0 +1,26 @@
+{
+  "name": "google-tasks-chatgpt",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,ui \"npm run dev -w @tasks/server\" \"npm run dev -w @tasks/ui\"",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.0",
+    "concurrently": "^10.0.5",
+    "prettier": "^3.9.6",
+    "typescript": "^7.0.2"
+  }
+}
