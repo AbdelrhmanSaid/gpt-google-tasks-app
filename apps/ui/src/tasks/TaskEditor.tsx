@@ -56,7 +56,7 @@ export function TaskEditor({
       await onSave(updated);
     } catch {
       setError(
-        'Could not save your changes. Your edits are still here — try again.',
+        'Could not save your changes. Your edits are still here. Retry, or cancel and refresh if the task changed elsewhere.',
       );
     }
   }

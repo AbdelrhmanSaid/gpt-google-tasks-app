@@ -76,7 +76,7 @@ export function TaskResults({
       <ul className="divide-y">
         {tasks.map((task) => (
           <TaskCard
-            key={`${task.listId}:${task.id}`}
+            key={`${task.listId}:${task.id}:${'revision' in task ? task.revision : ''}`}
             task={task}
             onUpdate={onUpdate}
           />

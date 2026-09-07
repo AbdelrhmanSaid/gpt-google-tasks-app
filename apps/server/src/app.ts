@@ -3,11 +3,16 @@ import type { Request, Response } from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 
 import { createMcpServer } from './mcp.js';
+import { DemoStore } from './tasks/demoStore.js';
 
-async function handleMcpRequest(req: Request, res: Response): Promise<void> {
+async function handleMcpRequest(
+  req: Request,
+  res: Response,
+  store: DemoStore,
+): Promise<void> {
   // Each request owns its transport. No protocol session is shared between users.
   // OAuth will still be required before this endpoint can expose personal tasks.
-  const server = createMcpServer();
+  const server = createMcpServer(store);
   const transport = new StreamableHTTPServerTransport({
     enableJsonResponse: true,
   });
@@ -36,6 +41,7 @@ async function handleMcpRequest(req: Request, res: Response): Promise<void> {
 
 export function createApp(): express.Express {
   const app = express();
+  const store = new DemoStore();
 
   app.disable('x-powered-by');
   app.use(express.json({ limit: '1mb' }));
@@ -44,7 +50,7 @@ export function createApp(): express.Express {
     res.json({ status: 'ok', service: 'google-tasks' });
   });
 
-  app.post('/mcp', handleMcpRequest);
+  app.post('/mcp', (req, res) => handleMcpRequest(req, res, store));
 
   // This stateless scaffold does not keep an SSE stream or support session deletion.
   app.all('/mcp', (_req, res) => {

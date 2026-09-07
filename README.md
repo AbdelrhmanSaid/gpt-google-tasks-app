@@ -5,7 +5,7 @@ A private pilot for individual Google Tasks accounts. Conversation drives the wo
 ## Requirements
 
 - Node.js 22.12 or newer and npm.
-- No credentials are needed for this scaffold.
+- No credentials are needed for the sample-data integration.
 
 ## Run locally
 
@@ -15,10 +15,36 @@ npm run dev
 ```
 
 - UI development preview: http://127.0.0.1:5173
+- MCP integration preview: http://127.0.0.1:5173/integration.html
 - MCP endpoint: http://127.0.0.1:3001/mcp
 - Health endpoint: http://127.0.0.1:3001/health
 
-The backend binds to loopback for local development. It implements stateless Streamable HTTP and exposes only `get_app_status`, a development tool. There is no Google authentication or task access yet. The UI previews interactive task cards using sample data; it is not yet registered as an MCP UI resource or connected to ChatGPT.
+The backend binds to loopback and implements stateless Streamable HTTP. It exposes sample-task tools and a self-contained MCP Apps UI resource. There is no Google authentication or real task access yet.
+
+`npm run dev` builds the embedded widget before starting both development servers. The standalone preview updates through Vite. After changing embedded UI code, run `npm run build:widget -w @tasks/ui`, reload the integration preview, and search again to load the new resource.
+
+## MCP integration
+
+The integration preview connects to the real MCP server through Vite's local proxy. Its development controls stand in for the conversation: search or create a task, then edit or complete it inside the embedded card. Search again to verify persistence. The frame receives the built HTML through `resources/read` and calls server tools through the MCP Apps bridge. It also sends updated task context to the host without triggering an assistant reply.
+
+This harness tests the protocol locally; it is not a ChatGPT connection or a production host. It permits scripts and forms inside an iframe with an isolated origin. The widget itself contains no preview controls or direct HTTP calls to the backend.
+
+| Tool                 | Purpose                                                                                        |
+| -------------------- | ---------------------------------------------------------------------------------------------- |
+| `get_app_status`     | Report readiness and the disconnected Google account state.                                    |
+| `start_demo`         | Create an isolated set of sample tasks; reuse its `demoSessionId` throughout the conversation. |
+| `search_tasks`       | Search titles and notes by substring, optionally filtering completion status.                  |
+| `get_tasks`          | Refresh known task IDs and their revisions.                                                    |
+| `create_task`        | Create a task in the sample Work list.                                                         |
+| `update_task`        | Edit title, notes, or scheduled date; null clears optional fields.                             |
+| `set_task_completed` | Complete or reopen a task.                                                                     |
+| `render_tasks`       | Show cards for task IDs returned by the data tools.                                            |
+
+Only `render_tasks` advertises a UI resource. Search and mutation tools return structured data so the assistant can use them without opening a card on every call. Mutations require the latest `expectedRevision`; stale edits return an error instead of overwriting newer values. Cancel an old draft, refresh the cards, and retry. Creation is not idempotent: repeating the call creates another task.
+
+Sample data lives in server memory, expires one hour after session creation, and resets when the server restarts. Each session has one Work list and supports up to 200 tasks; at most 100 sessions can coexist. Demo session IDs identify fake data buckets, **not authenticated users**. Do not store personal task data in this demo. Real accounts will use server-side OAuth identity instead.
+
+To test in ChatGPT, connect this MCP endpoint using a supported tunnel or HTTPS endpoint, then follow the [ChatGPT connection guide](https://developers.openai.com/plugins/deploy/connect-chatgpt). Refresh the connection's tool definitions after changes. A useful first prompt is: “Start a sample task session, find my website tasks, and show the cards.” Actual ChatGPT connection testing remains separate from the local harness.
 
 ## Task-card preview
 
@@ -33,8 +59,8 @@ The server reads the optional `PORT` environment variable (default 3001). No `.e
 ## Workspace
 
 ```text
-apps/server/       TypeScript MCP backend and HTTP health endpoint
-apps/ui/           React + Vite task-card UI development preview
+apps/server/       MCP transport, sample task operations, and UI resource
+apps/ui/           Shared task cards, standalone preview, and embedded widget
 packages/shared/   Type-only task presentation contracts
 ```
 
@@ -48,17 +74,17 @@ npm run smoke -w @tasks/server
 npm run start -w @tasks/server
 ```
 
-Run `npm run format` to format source files. Build output goes to each app's `dist/` directory. The server does not serve the UI bundle yet.
+Run `npm run format` to format source files. Build output goes to each app's `dist/` directory, plus `apps/ui/dist-widget/widget.html` for the self-contained widget. The server reads this HTML through MCP resources, so keep the sibling app directories together when running the built server.
 
-The smoke check starts a temporary server on port 3099, verifies HTTP health and a complete MCP tool call, then stops it. Leave that port free when running the check.
+The smoke check starts a temporary server on port 3099, verifies health, tool discovery, bundled resource delivery, search, creation, edits, completion/reopening, invalid dates, stale revisions, and session isolation, then stops it. Leave that port free when running the check. Build the UI and server first.
 
-The UI uses local shadcn/ui components for buttons, checkboxes, inputs, labels, textareas, badges, and spinners. Tailwind utility classes handle all component layout and styling. `src/styles.css` contains only imports; `src/theme.css` contains shared color tokens and base styles. The MCP Apps bridge remains installed for the next integration step.
+The UI uses local shadcn/ui components for buttons, checkboxes, inputs, labels, textareas, badges, spinners, and the date picker. Tailwind utility classes handle all component layout and styling. `src/styles.css` contains only imports; `src/theme.css` contains shared color tokens and base styles. `src/widget/` owns the MCP Apps bridge; task-card components do not depend on the host SDK.
 
 Component sources live in `apps/ui/src/components/ui`; CLI settings are in `apps/ui/components.json`. Add another component with `npx shadcn@latest add <component> --cwd apps/ui`. Keep project formatting and whitespace conventions when editing generated components.
 
 ## Next steps
 
-1. Register the UI resource and wire the MCP Apps bridge and task tools.
+1. Connect and test the sample flow in ChatGPT.
 2. Add OAuth, per-user Google connections, and the Google Tasks API.
 3. Test with one account before inviting teammates.
 

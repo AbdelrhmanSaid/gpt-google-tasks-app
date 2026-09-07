@@ -56,7 +56,9 @@ export function TaskCard({ task, onUpdate }: TaskCardProps) {
         status: completed ? 'needsAction' : 'completed',
       });
     } catch {
-      setError('Could not update this task. Try the checkbox again.');
+      setError(
+        'Could not update this task. Retry, or refresh the cards if it changed elsewhere.',
+      );
     } finally {
       setPending(false);
     }
