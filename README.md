@@ -18,7 +18,15 @@ npm run dev
 - MCP endpoint: http://127.0.0.1:3001/mcp
 - Health endpoint: http://127.0.0.1:3001/health
 
-The backend binds to loopback for local development. It implements stateless Streamable HTTP and exposes only `get_app_status`, a development tool. There is no Google authentication or task access yet. The UI is a standalone placeholder, not yet registered as an MCP UI resource or connected to ChatGPT.
+The backend binds to loopback for local development. It implements stateless Streamable HTTP and exposes only `get_app_status`, a development tool. There is no Google authentication or task access yet. The UI previews interactive task cards using sample data; it is not yet registered as an MCP UI resource or connected to ChatGPT.
+
+## Task-card preview
+
+Use the preview scenario buttons to inspect one task, multiple tasks, no matches, loading, and a load error. Complete or reopen a task with its checkbox. Use Edit to change the title, notes, or scheduled date; Cancel discards the draft. The date picker uses shadcn Calendar and Popover components, supports month navigation and clearing the date, and keeps the selected day independent of timezone.
+
+Enable **Simulate failed updates** to check error recovery. Failed saves keep the draft open; failed completion requests leave the task unchanged. Disable the simulation and retry to save. All updates are local to the page and reset on reload.
+
+`apps/ui/src/tasks/` contains the reusable result, card, and editor components. Sample fixtures live in `apps/ui/src/preview/`; `App.tsx` supplies the preview controls and simulated update callback. Preview controls are not part of the future ChatGPT widget.
 
 The server reads the optional `PORT` environment variable (default 3001). No `.env` loader is configured yet. Never put credentials in UI code or `VITE_*` variables.
 
@@ -44,14 +52,15 @@ Run `npm run format` to format source files. Build output goes to each app's `di
 
 The smoke check starts a temporary server on port 3099, verifies HTTP health and a complete MCP tool call, then stops it. Leave that port free when running the check.
 
-The MCP Apps bridge dependency is installed for the next UI step. OpenAI's optional component library is deferred: its current release brings a dependency flagged by npm audit. This does not affect using the MCP Apps UI protocol.
+The UI uses local shadcn/ui components for buttons, checkboxes, inputs, labels, textareas, badges, and spinners. Tailwind utility classes handle all component layout and styling. `src/styles.css` contains only imports; `src/theme.css` contains shared color tokens and base styles. The MCP Apps bridge remains installed for the next integration step.
+
+Component sources live in `apps/ui/src/components/ui`; CLI settings are in `apps/ui/components.json`. Add another component with `npx shadcn@latest add <component> --cwd apps/ui`. Keep project formatting and whitespace conventions when editing generated components.
 
 ## Next steps
 
-1. Build task cards using sample data.
-2. Register the UI resource and wire the MCP Apps bridge and task tools.
-3. Add OAuth, per-user Google connections, and the Google Tasks API.
-4. Test with one account before inviting teammates.
+1. Register the UI resource and wire the MCP Apps bridge and task tools.
+2. Add OAuth, per-user Google connections, and the Google Tasks API.
+3. Test with one account before inviting teammates.
 
 Every future task operation must resolve credentials from the authenticated server-side identity. Never trust a model-supplied user ID to choose credentials. Google remains the source of truth. Store task dates as calendar dates, not timestamps.
 

@@ -1,31 +1,3 @@
-:root {
-  font-family: system-ui, sans-serif;
-  color-scheme: light dark;
-  line-height: 1.5;
-  color: light-dark(#242424, #ececec);
-  background: light-dark(#fafafa, #171717);
-}
-
-body {
-  margin: 0;
-}
-
-main {
-  max-width: 36rem;
-  margin: 4rem auto;
-  padding: 1.5rem;
-}
-
-h1 {
-  margin: 0.5rem 0;
-  font-size: 1.5rem;
-}
-
-p {
-  color: light-dark(#606060, #aaa);
-}
-
-.eyebrow {
-  font-size: 0.75rem;
-  color: light-dark(#606060, #aaa);
-}
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import './theme.css';
