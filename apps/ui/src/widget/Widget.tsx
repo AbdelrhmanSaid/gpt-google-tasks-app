@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TaskResults } from '@/tasks/TaskResults';
 
-import { readTaskResult } from './taskResult';
+import { mergeTaskResult, readTaskResult, taskSelection } from './taskResult';
 
 export function Widget() {
   const [snapshot, setSnapshot] = useState<TaskSnapshot | null>(null);
@@ -62,10 +62,7 @@ export function Widget() {
     try {
       const result = await app.callServerTool({
         name: 'get_tasks',
-        arguments: {
-          demoSessionId: snapshot.demoSessionId,
-          taskIds: snapshot.tasks.map((task) => task.id),
-        },
+        arguments: taskSelection(snapshot),
       });
 
       setSnapshot(readTaskResult(result));
@@ -73,7 +70,7 @@ export function Widget() {
       setNotice('Tasks refreshed.');
     } catch {
       setNotice(
-        'Could not refresh. Ask ChatGPT to search again; the demo session may have expired.',
+        'Could not refresh. Check your connection and ask ChatGPT to search again.',
       );
     } finally {
       setRefreshing(false);
@@ -81,7 +78,9 @@ export function Widget() {
   }
 
   async function updateTask(updated: Task): Promise<void> {
-    const previous = snapshot?.tasks.find((task) => task.id === updated.id);
+    const previous = snapshot?.tasks.find(
+      (task) => task.id === updated.id && task.listId === updated.listId,
+    );
 
     if (!app || !isConnected || !snapshot || !previous) {
       throw new Error('The task connection is not ready.');
@@ -91,9 +90,17 @@ export function Widget() {
     const result = await app.callServerTool({
       name: completionChanged ? 'set_task_completed' : 'update_task',
       arguments: {
-        demoSessionId: snapshot.demoSessionId,
-        taskId: updated.id,
-        expectedRevision: previous.revision,
+        ...(snapshot.sampleData && 'revision' in previous
+          ? {
+              demoSessionId: snapshot.demoSessionId,
+              taskId: previous.id,
+              expectedRevision: previous.revision,
+            }
+          : {
+              id: previous.id,
+              listId: previous.listId,
+              expectedEtag: 'etag' in previous ? previous.etag : undefined,
+            }),
         ...(completionChanged
           ? { completed: updated.status === 'completed' }
           : {
@@ -105,18 +112,7 @@ export function Widget() {
     });
     const saved = readTaskResult(result);
 
-    setSnapshot((current) => {
-      if (!current || current.demoSessionId !== saved.demoSessionId) {
-        return current;
-      }
-
-      return {
-        ...current,
-        tasks: current.tasks.map(
-          (task) => saved.tasks.find((item) => item.id === task.id) ?? task,
-        ),
-      };
-    });
+    setSnapshot((current) => mergeTaskResult(current, saved));
 
     setNotice('Task saved.');
   }
@@ -133,7 +129,11 @@ export function Widget() {
   return (
     <main className="mx-auto max-w-3xl p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <Badge variant="secondary">Sample data · Google is not connected</Badge>
+        <Badge variant="secondary">
+          {snapshot?.sampleData === false
+            ? 'Google Tasks'
+            : 'Sample data · Google is not connected'}
+        </Badge>
         <Button
           variant="ghost"
           size="sm"

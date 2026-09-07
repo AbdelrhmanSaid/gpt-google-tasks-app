@@ -15,8 +15,25 @@ export interface DemoTask extends Task {
   revision: number;
 }
 
-export interface TaskSnapshot {
+export interface DemoTaskSnapshot {
   sampleData: true;
   demoSessionId: string;
   tasks: DemoTask[];
 }
+
+export interface TaskReference {
+  id: string;
+  listId: string;
+}
+
+export interface GoogleTask extends Task {
+  etag: string;
+}
+
+export interface GoogleTaskSnapshot {
+  sampleData: false;
+  tasks: GoogleTask[];
+  nextPageToken: string | null;
+}
+
+export type TaskSnapshot = DemoTaskSnapshot | GoogleTaskSnapshot;

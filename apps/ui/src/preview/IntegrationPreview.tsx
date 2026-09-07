@@ -8,25 +8,29 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { readTaskResult } from '@/widget/taskResult';
+import { readTaskResult, taskSelection } from '@/widget/taskResult';
 
 interface PreviewConnection {
   client: Client;
-  demoSessionId: string;
+  demoSessionId?: string;
   resourceHtml: string;
 }
 
 // Development-only host: exercise the built iframe and real MCP transport.
 // ChatGPT supplies this host layer in the deployed app.
-export function IntegrationPreview() {
+export function IntegrationPreview({ google = false }: { google?: boolean }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const bridge = useRef<AppBridge | null>(null);
   const [connection, setConnection] = useState<PreviewConnection | null>(null);
-  const [query, setQuery] = useState('website');
+  const [query, setQuery] = useState(google ? '' : 'website');
+  const [lists, setLists] = useState<{ id: string; title: string }[]>([]);
+  const [listId, setListId] = useState('');
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(true);
   const [message, setMessage] = useState('Connecting to the local MCP server…');
@@ -40,7 +44,7 @@ export function IntegrationPreview() {
 
     async function connect() {
       const transport = new StreamableHTTPClientTransport(
-        new URL('/mcp', window.location.origin),
+        new URL(google ? '/api/google/mcp' : '/mcp', window.location.origin),
       );
 
       // @ts-expect-error SDK Transport.sessionId omits undefined under exactOptionalPropertyTypes.
@@ -61,20 +65,62 @@ export function IntegrationPreview() {
         throw new Error('Task UI resource did not contain HTML.');
       }
 
-      const result = await client.callTool({
-        name: 'start_demo',
-        arguments: {},
-      });
-      const sample = readTaskResult(CallToolResultSchema.parse(result));
+      let demoSessionId: string | undefined;
+
+      if (google) {
+        const availableLists: { id: string; title: string }[] = [];
+        let pageToken: string | null = null;
+
+        do {
+          const result = CallToolResultSchema.parse(
+            await client.callTool({
+              name: 'list_task_lists',
+              arguments: pageToken ? { pageToken } : {},
+            }),
+          );
+
+          if (result.isError) {
+            throw new Error(
+              'Google Tasks access failed. Reconnect and grant Tasks access.',
+            );
+          }
+
+          const page = z
+            .object({
+              lists: z.array(z.object({ id: z.string(), title: z.string() })),
+              nextPageToken: z.string().nullable(),
+            })
+            .parse(result.structuredContent);
+          availableLists.push(...page.lists);
+          pageToken = page.nextPageToken;
+        } while (pageToken && !disposed);
+
+        if (!disposed) {
+          setLists(availableLists);
+          setListId(availableLists[0]?.id ?? '');
+        }
+      } else {
+        const result = await client.callTool({
+          name: 'start_demo',
+          arguments: {},
+        });
+        const sample = readTaskResult(CallToolResultSchema.parse(result));
+
+        if (!sample.sampleData) {
+          throw new Error('Expected a demo session.');
+        }
+
+        demoSessionId = sample.demoSessionId;
+      }
 
       if (!disposed) {
         setConnection({
           client,
-          demoSessionId: sample.demoSessionId,
+          ...(demoSessionId ? { demoSessionId } : {}),
           resourceHtml: content.text,
         });
         setMessage(
-          'Connected. Search or create a sample task to open the widget.',
+          `Connected. Search or create ${google ? 'a Google' : 'a sample'} task to open the widget.`,
         );
         setBusy(false);
       }
@@ -93,7 +139,7 @@ export function IntegrationPreview() {
       void bridge.current?.close();
       void client.close();
     };
-  }, []);
+  }, [google]);
 
   async function showTasks(result: CallToolResult) {
     const iframe = frame.current;
@@ -104,10 +150,8 @@ export function IntegrationPreview() {
     }
 
     const snapshot = readTaskResult(result);
-    const args = {
-      demoSessionId: connection.demoSessionId,
-      taskIds: snapshot.tasks.map((task) => task.id),
-    };
+    const args = taskSelection(snapshot);
+    setNextPageToken(snapshot.sampleData ? null : snapshot.nextPageToken);
     const rendered = await connection.client.callTool(
       { name: 'render_tasks', arguments: args },
       CallToolResultSchema,
@@ -162,7 +206,7 @@ export function IntegrationPreview() {
     await ready;
   }
 
-  async function runAction(action: 'search' | 'create') {
+  async function runAction(action: 'search' | 'create', pageToken?: string) {
     if (!connection) {
       return;
     }
@@ -175,7 +219,9 @@ export function IntegrationPreview() {
         {
           name: action === 'search' ? 'search_tasks' : 'create_task',
           arguments: {
-            demoSessionId: connection.demoSessionId,
+            ...(google
+              ? { listId, ...(pageToken ? { pageToken } : {}) }
+              : { demoSessionId: connection.demoSessionId }),
             ...(action === 'search' ? { query } : { title }),
           },
         },
@@ -184,7 +230,7 @@ export function IntegrationPreview() {
 
       await showTasks(CallToolResultSchema.parse(result));
       setMessage(
-        'Widget connected through MCP. Card changes are saved on the sample server.',
+        `Widget connected through MCP. Card changes are saved ${google ? 'in your Google account' : 'on the sample server'}.`,
       );
 
       if (action === 'create') {
@@ -204,6 +250,27 @@ export function IntegrationPreview() {
         Development controls simulate the conversation. The frame below loads
         the exact HTML resource served to ChatGPT.
       </p>
+      {google && (
+        <div className="space-y-2">
+          <Label htmlFor="task-list">Task list</Label>
+          <select
+            id="task-list"
+            className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+            value={listId}
+            disabled={busy}
+            onChange={(event) => {
+              setListId(event.target.value);
+              setNextPageToken(null);
+            }}
+          >
+            {lists.map((list) => (
+              <option key={list.id} value={list.id}>
+                {list.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <form
         className="flex items-end gap-3"
         onSubmit={(event) => {
@@ -212,14 +279,19 @@ export function IntegrationPreview() {
         }}
       >
         <div className="flex-1 space-y-2">
-          <Label htmlFor="query">Search sample tasks</Label>
+          <Label htmlFor="query">
+            Search {google ? 'Google' : 'sample'} tasks
+          </Label>
           <Input
             id="query"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setNextPageToken(null);
+            }}
           />
         </div>
-        <Button disabled={busy}>Search</Button>
+        <Button disabled={busy || (google && !listId)}>Search</Button>
       </form>
       <form
         className="flex items-end gap-3"
@@ -238,11 +310,28 @@ export function IntegrationPreview() {
             onChange={(event) => setTitle(event.target.value)}
           />
         </div>
-        <Button disabled={busy || !title.trim()}>Create</Button>
+        <Button disabled={busy || !title.trim() || (google && !listId)}>
+          Create
+        </Button>
       </form>
       <p role="status" className="text-sm text-muted-foreground">
         {message}
       </p>
+      {nextPageToken && (
+        <div className="flex items-center gap-3 text-sm">
+          <span>
+            More tasks remain in this list. Search the next page for additional
+            matches.
+          </span>
+          <Button
+            variant="outline"
+            disabled={busy}
+            onClick={() => void runAction('search', nextPageToken)}
+          >
+            Next page
+          </Button>
+        </div>
+      )}
       <iframe
         ref={frame}
         title="Task cards widget"

@@ -7,7 +7,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 
 const child = spawn(process.execPath, ['dist/index.js'], {
   cwd: new URL('../', import.meta.url),
-  env: { ...process.env, PORT: '3099' },
+  env: { ...process.env, PORT: '3099', TASKS_MODE: 'demo' },
   stdio: ['ignore', 'pipe', 'inherit'],
   windowsHide: true,
 });

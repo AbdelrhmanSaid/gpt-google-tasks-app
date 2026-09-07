@@ -4,7 +4,7 @@ A private pilot for individual Google Tasks accounts. Conversation drives the wo
 
 ## Requirements
 
-- Node.js 22.12 or newer and npm.
+- Node.js 22.13 or newer and npm (uses built-in SQLite).
 - No credentials are needed for the sample-data integration.
 
 ## Run locally
@@ -19,11 +19,26 @@ npm run dev
 - MCP endpoint: http://127.0.0.1:3001/mcp
 - Health endpoint: http://127.0.0.1:3001/health
 
-The backend binds to loopback and implements stateless Streamable HTTP. It exposes sample-task tools and a self-contained MCP Apps UI resource. There is no Google authentication or real task access yet.
+The backend binds to loopback and implements stateless Streamable HTTP. Without `TASKS_MODE=google`, it runs the sample integration. Google mode enables real per-user task access through the local authenticated preview and blocks `/mcp` until hosted OAuth is implemented.
+
+### Connect Google locally
+
+Copy `apps/server/.env.example` to `apps/server/.env`, fill in the Google client credentials, a stable random `BETTER_AUTH_SECRET` of at least 32 characters, and the pilot email allowlist. Follow [Google Cloud setup](docs/google-setup.md) for the client and test users. Then run:
+
+```sh
+npm run db:migrate -w @tasks/server
+npm run dev
+```
+
+Open http://127.0.0.1:5173/google.html and connect Google. Select a task list, search or create a task, then use the embedded cards to edit, complete, or reopen it. These controls simulate a conversation for local development. Changes save to the connected Google account.
+
+Google credentials are encrypted in `apps/server/data/auth.sqlite` using the application secret. Both the database directory and `.env` are ignored by Git. Keep the secret stable across restarts. Sign out ends the browser session; it does not revoke Google's grant. Full disconnect/revocation and ChatGPT OAuth remain in the next authentication step. You can revoke the grant through Google Account connections meanwhile.
+
+Google tools include `list_task_lists`; task references use `(listId, id)` and mutations require `expectedEtag`. Search examines 50 tasks per page. Follow `nextPageToken` until null, even if a page has no matches. Live testing confirmed that stale ETags are rejected by Google rather than overwriting a newer edit.
 
 `npm run dev` builds the embedded widget before starting both development servers. The standalone preview updates through Vite. After changing embedded UI code, run `npm run build:widget -w @tasks/ui`, reload the integration preview, and search again to load the new resource.
 
-## MCP integration
+## Sample MCP integration
 
 The integration preview connects to the real MCP server through Vite's local proxy. Its development controls stand in for the conversation: search or create a task, then edit or complete it inside the embedded card. Search again to verify persistence. The frame receives the built HTML through `resources/read` and calls server tools through the MCP Apps bridge. It also sends updated task context to the host without triggering an assistant reply.
 
@@ -54,12 +69,12 @@ Enable **Simulate failed updates** to check error recovery. Failed saves keep th
 
 `apps/ui/src/tasks/` contains the reusable result, card, and editor components. Sample fixtures live in `apps/ui/src/preview/`; `App.tsx` supplies the preview controls and simulated update callback. Preview controls are not part of the future ChatGPT widget.
 
-The server reads the optional `PORT` environment variable (default 3001). No `.env` loader is configured yet. Never put credentials in UI code or `VITE_*` variables.
+The server loads `apps/server/.env`; existing process environment variables take precedence. The optional `PORT` defaults to 3001. Google mode uses the exact configured local callback on port 3001. Never put credentials in UI code or `VITE_*` variables.
 
 ## Workspace
 
 ```text
-apps/server/       MCP transport, sample task operations, and UI resource
+apps/server/       Authentication, Google API access, MCP tools, and UI resource
 apps/ui/           Shared task cards, standalone preview, and embedded widget
 packages/shared/   Type-only task presentation contracts
 ```
@@ -71,6 +86,7 @@ npm run typecheck
 npm run format:check
 npm run build
 npm run smoke -w @tasks/server
+npm run test:google -w @tasks/server
 npm run start -w @tasks/server
 ```
 
@@ -78,15 +94,27 @@ Run `npm run format` to format source files. Build output goes to each app's `di
 
 The smoke check starts a temporary server on port 3099, verifies health, tool discovery, bundled resource delivery, search, creation, edits, completion/reopening, invalid dates, stale revisions, and session isolation, then stops it. Leave that port free when running the check. Build the UI and server first.
 
+The Google tests use an isolated in-memory auth database and a mocked Google network boundary. They verify real session validation, pilot admission, encrypted token resolution, cross-account reads/writes, protected routes, pagination, conditional requests, field clearing, and safe errors. They never use your live credentials.
+
+After creating one uniquely named test task in the preview, an optional operator-run check is available:
+
+```sh
+node apps/server/scripts/live-google.mjs YOUR_PILOT_EMAIL "EXACT_LIST_TITLE" "ChatGPT integration test YOUR_UNIQUE_SUFFIX"
+```
+
+It modifies only that exact test task, verifies stale-write rejection against Google, then leaves the task completed with notes/date cleared. It never deletes tasks. Do not use a task containing information you want to preserve.
+
 The UI uses local shadcn/ui components for buttons, checkboxes, inputs, labels, textareas, badges, spinners, and the date picker. Tailwind utility classes handle all component layout and styling. `src/styles.css` contains only imports; `src/theme.css` contains shared color tokens and base styles. `src/widget/` owns the MCP Apps bridge; task-card components do not depend on the host SDK.
 
 Component sources live in `apps/ui/src/components/ui`; CLI settings are in `apps/ui/components.json`. Add another component with `npx shadcn@latest add <component> --cwd apps/ui`. Keep project formatting and whitespace conventions when editing generated components.
 
 ## Next steps
 
-1. Connect and test the sample flow in ChatGPT.
-2. Add OAuth, per-user Google connections, and the Google Tasks API.
-3. Test with one account before inviting teammates.
+1. Add ChatGPT-facing MCP OAuth and full disconnect/revocation; test authorization locally.
+2. Deploy to the VPS with HTTPS and persistent credential storage.
+3. Connect the hosted endpoint to ChatGPT and test before inviting teammates.
+
+The [authentication design](docs/authentication.md) distinguishes the implemented Google connection from the remaining hosted OAuth flow. `NODE_ENV=production` is refused until that boundary is ready.
 
 Every future task operation must resolve credentials from the authenticated server-side identity. Never trust a model-supplied user ID to choose credentials. Google remains the source of truth. Store task dates as calendar dates, not timestamps.
 

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import type { DemoTask, TaskSnapshot } from '@tasks/shared';
+import type { DemoTask, DemoTaskSnapshot } from '@tasks/shared';
 
 import { sampleTasks } from './sampleTasks.js';
 
@@ -26,7 +26,7 @@ export class DemoError extends Error {}
 export class DemoStore {
   private readonly sessions = new Map<string, DemoSession>();
 
-  start(): TaskSnapshot {
+  start(): DemoTaskSnapshot {
     for (const [id, session] of this.sessions) {
       if (session.expiresAt <= Date.now()) {
         this.sessions.delete(id);
@@ -49,7 +49,7 @@ export class DemoStore {
     return this.snapshot(id);
   }
 
-  snapshot(id: string, taskIds?: string[]): TaskSnapshot {
+  snapshot(id: string, taskIds?: string[]): DemoTaskSnapshot {
     const session = this.getSession(id);
     const tasks =
       taskIds === undefined
@@ -63,7 +63,11 @@ export class DemoStore {
     };
   }
 
-  search(id: string, query: string, status?: DemoTask['status']): TaskSnapshot {
+  search(
+    id: string,
+    query: string,
+    status?: DemoTask['status'],
+  ): DemoTaskSnapshot {
     const result = this.snapshot(id);
     const phrase = query.trim().toLocaleLowerCase();
 
@@ -79,7 +83,7 @@ export class DemoStore {
     return result;
   }
 
-  create(id: string, title: string, edits: TaskEdits): TaskSnapshot {
+  create(id: string, title: string, edits: TaskEdits): DemoTaskSnapshot {
     const session = this.getSession(id);
 
     if (session.tasks.length >= maxTasksPerSession) {
@@ -106,7 +110,7 @@ export class DemoStore {
     taskId: string,
     revision: number,
     edits: TaskEdits,
-  ): TaskSnapshot {
+  ): DemoTaskSnapshot {
     const task = this.getTask(this.getSession(id), taskId);
 
     this.checkRevision(task, revision);
@@ -121,7 +125,7 @@ export class DemoStore {
     taskId: string,
     revision: number,
     completed: boolean,
-  ): TaskSnapshot {
+  ): DemoTaskSnapshot {
     const task = this.getTask(this.getSession(id), taskId);
 
     this.checkRevision(task, revision);
