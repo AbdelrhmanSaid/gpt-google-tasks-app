@@ -1,0 +1,26 @@
+[Unit]
+Description=Google Tasks ChatGPT app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=google-tasks
+Group=google-tasks
+WorkingDirectory=/opt/google-tasks/current/apps/server
+EnvironmentFile=/etc/google-tasks/environment
+ExecStart=/opt/node/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+StateDirectory=google-tasks
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/google-tasks
+
+[Install]
+WantedBy=multi-user.target

@@ -380,7 +380,7 @@ test('Real session validation, pilot admission, token encryption, and per-user M
   }
 });
 
-test('Invalid configuration never echoes secrets and production is refused', () => {
+test('Invalid configuration never echoes secrets and production requires Google', () => {
   assert.throws(
     () =>
       readGoogleConfig({
@@ -391,6 +391,59 @@ test('Invalid configuration never echoes secrets and production is refused', () 
   );
   assert.throws(
     () => readGoogleConfig({ NODE_ENV: 'production' }),
-    /local testing only/,
+    /Production requires TASKS_MODE=google/,
   );
+});
+
+test('Production requires a canonical HTTPS origin and closes local preview access', async () => {
+  const environment = {
+    NODE_ENV: 'production',
+    TASKS_MODE: 'google',
+    BETTER_AUTH_URL: 'https://tasks.example.com',
+    BETTER_AUTH_SECRET: config.secret,
+    GOOGLE_CLIENT_ID: config.clientId,
+    GOOGLE_CLIENT_SECRET: config.clientSecret,
+    PILOT_ALLOWED_EMAILS: 'one@example.com',
+  };
+
+  for (const baseURL of [
+    'http://tasks.example.com',
+    'http://127.0.0.1:3001',
+    'https://tasks.example.com/path',
+    'https://user:password@tasks.example.com',
+    'https://tasks.example.com?query=1',
+  ]) {
+    assert.throws(() =>
+      readGoogleConfig({ ...environment, BETTER_AUTH_URL: baseURL }),
+    );
+  }
+
+  const production = readGoogleConfig(environment);
+  const google = createGoogleAuth({ ...production, databasePath: ':memory:' });
+  const server = createApp(google).listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const baseURL = `http://127.0.0.1:${server.address().port}`;
+
+  try {
+    const preview = await fetch(`${baseURL}/api/google/mcp`, {
+      method: 'POST',
+      headers: { Origin: previewOrigin },
+    });
+    assert.equal(preview.status, 404);
+
+    const disconnect = await fetch(`${baseURL}/api/google/disconnect`, {
+      method: 'POST',
+      headers: { Origin: previewOrigin },
+    });
+    assert.equal(disconnect.status, 403);
+    assert.deepEqual(google.auth.options.trustedOrigins, [production.baseURL]);
+
+    const metadata = await fetch(
+      `${baseURL}/.well-known/oauth-protected-resource`,
+    );
+    assert.equal((await metadata.json()).resource, `${production.baseURL}/mcp`);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    google.database.close();
+  }
 });

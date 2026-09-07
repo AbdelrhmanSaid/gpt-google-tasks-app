@@ -8,7 +8,12 @@ import { toNodeHandler } from 'better-auth/node';
 
 import { createMcpServer } from './mcp.js';
 import { DemoStore } from './tasks/demoStore.js';
-import { previewOrigin, type GoogleAuth } from './auth/google.js';
+import {
+  allowsLocalPreview,
+  previewOrigin,
+  trustedOrigins,
+  type GoogleAuth,
+} from './auth/google.js';
 import { createGoogleMcpServer } from './google/mcp.js';
 import { mcpScope } from './auth/oauth.js';
 
@@ -160,11 +165,7 @@ export function createApp(google?: GoogleAuth): express.Express {
 
   if (google) {
     app.post('/api/google/disconnect', async (req, res) => {
-      if (
-        ![previewOrigin, google.config.baseURL].includes(
-          req.get('origin') ?? '',
-        )
-      ) {
+      if (!trustedOrigins(google.config).includes(req.get('origin') ?? '')) {
         res.status(403).json({ error: 'Untrusted request origin' });
         return;
       }
@@ -191,6 +192,11 @@ export function createApp(google?: GoogleAuth): express.Express {
     });
 
     app.post('/api/google/mcp', async (req, res) => {
+      if (!allowsLocalPreview(google.config)) {
+        res.sendStatus(404);
+        return;
+      }
+
       // This cookie-authenticated endpoint exists only for local development.
       // ChatGPT will use a separate bearer-token OAuth boundary on /mcp.
       if (req.get('origin') !== previewOrigin) {

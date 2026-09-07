@@ -16,6 +16,16 @@ import { disconnectGoogle } from './disconnect.js';
 export const tasksScope = 'https://www.googleapis.com/auth/tasks';
 export const previewOrigin = 'http://127.0.0.1:5173';
 
+export function allowsLocalPreview(config: GoogleConfig): boolean {
+  return config.baseURL === 'http://127.0.0.1:3001';
+}
+
+export function trustedOrigins(config: GoogleConfig): string[] {
+  return allowsLocalPreview(config)
+    ? [config.baseURL, previewOrigin]
+    : [config.baseURL];
+}
+
 export function createGoogleAuth(config: GoogleConfig) {
   mkdirSync(dirname(config.databasePath), { recursive: true });
 
@@ -29,7 +39,7 @@ export function createGoogleAuth(config: GoogleConfig) {
     baseURL: config.baseURL,
     secret: config.secret,
     database,
-    trustedOrigins: [previewOrigin],
+    trustedOrigins: trustedOrigins(config),
     logger: { disabled: true },
     plugins: [...createOAuthPlugins(config)],
     socialProviders: {

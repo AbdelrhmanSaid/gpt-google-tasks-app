@@ -1,0 +1,9 @@
+NODE_ENV=production
+TASKS_MODE=google
+PORT=3001
+BETTER_AUTH_URL=https://mcp.abdelrhmansaid.com
+BETTER_AUTH_SECRET=replace-with-a-random-secret-of-at-least-32-characters
+GOOGLE_CLIENT_ID=replace.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=replace-with-production-client-secret
+PILOT_ALLOWED_EMAILS=replace@example.com
+AUTH_DATABASE_PATH=/var/lib/google-tasks/auth.sqlite

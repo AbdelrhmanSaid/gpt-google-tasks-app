@@ -116,7 +116,7 @@ Component sources live in `apps/ui/src/components/ui`; CLI settings are in `apps
 1. Configure the public hostname, Google callback, and deploy to the VPS with HTTPS and persistent credential storage.
 2. Register the exact ChatGPT callback, connect the hosted endpoint, and test before inviting teammates.
 
-The [authentication design](docs/authentication.md) and [OAuth setup](docs/oauth.md) describe the implemented authorization flow. `NODE_ENV=production` is still refused until deployment-specific public URL, proxy, and storage configuration is added.
+The [authentication design](docs/authentication.md) and [OAuth setup](docs/oauth.md) describe the implemented authorization flow. Production requires Google mode and an HTTPS origin; the local preview endpoint is disabled. See the [VPS deployment guide](docs/deployment.md) for service, proxy, storage, and rollback setup.
 
 Every future task operation must resolve credentials from the authenticated server-side identity. Never trust a model-supplied user ID to choose credentials. Google remains the source of truth. Store task dates as calendar dates, not timestamps.
 

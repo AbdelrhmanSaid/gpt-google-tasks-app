@@ -2,7 +2,7 @@
 
 The server now implements OAuth authorization-code flow with S256 PKCE, explicit consent, rotating refresh tokens, revocation, and protected-resource discovery. Google credentials stay in the server's encrypted account storage. ChatGPT receives separate opaque app tokens, stored as hashes in SQLite.
 
-This is locally tested; it has not been connected to ChatGPT or deployed. The current configuration still restricts startup to loopback. Public HTTPS configuration, Google production callback, proxy settings, and persistent storage are the deployment step.
+The OAuth flow is tested locally. Production supports a canonical HTTPS origin behind a loopback reverse proxy, with the development preview endpoint disabled. See [VPS deployment](deployment.md) for setup. Connecting and testing inside ChatGPT remains a separate step.
 
 ## Local setup
 

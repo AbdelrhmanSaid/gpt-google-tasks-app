@@ -28,10 +28,8 @@ export function loadLocalEnvironment(): void {
 export function readGoogleConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): GoogleConfig | undefined {
-  if (env.NODE_ENV === 'production') {
-    throw new Error(
-      'This release supports local testing only. Configure hosted OAuth before deployment.',
-    );
+  if (env.NODE_ENV === 'production' && env.TASKS_MODE !== 'google') {
+    throw new Error('Production requires TASKS_MODE=google.');
   }
 
   if (env.TASKS_MODE !== 'google') {
@@ -44,7 +42,19 @@ export function readGoogleConfig(
 
   const result = z
     .object({
-      BETTER_AUTH_URL: z.literal(localOrigin),
+      BETTER_AUTH_URL: z.string().refine((value) => {
+        if (env.NODE_ENV !== 'production') {
+          return value === localOrigin;
+        }
+
+        try {
+          const url = new URL(value);
+
+          return url.protocol === 'https:' && url.origin === value;
+        } catch {
+          return false;
+        }
+      }),
       BETTER_AUTH_SECRET: z.string().min(32),
       GOOGLE_CLIENT_ID: z.string().endsWith('.apps.googleusercontent.com'),
       GOOGLE_CLIENT_SECRET: z.string().min(1),
@@ -60,7 +70,7 @@ export function readGoogleConfig(
     ];
 
     throw new Error(
-      `Invalid Google configuration: ${fields.join(', ')}. This release supports local Google testing only.`,
+      `Invalid Google configuration: ${fields.join(', ')}. Use an HTTPS origin in production or ${localOrigin} locally.`,
     );
   }
 
