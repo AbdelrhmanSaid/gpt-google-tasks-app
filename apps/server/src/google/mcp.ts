@@ -6,6 +6,11 @@ import { z } from 'zod';
 import { GoogleTasksError } from './errors.js';
 import type { GoogleTasksClient } from './tasks.js';
 import { registerTaskResource, taskResourceUri } from '../ui/resource.js';
+import { mcpScope } from '../auth/oauth.js';
+
+const oauthMetadata = {
+  securitySchemes: [{ type: 'oauth2', scopes: [mcpScope] }],
+};
 
 const id = z.string().min(1).max(1024);
 const reference = z.object({ id, listId: id });
@@ -68,6 +73,7 @@ export function createGoogleMcpServer(client: GoogleTasksClient): McpServer {
         'List the signed-in user’s Google task lists. Follow nextPageToken until null to see all lists. Use returned list IDs in task operations.',
       inputSchema: { pageToken },
       annotations: readAnnotations,
+      _meta: oauthMetadata,
     },
     async ({ pageToken }) =>
       runOperation(() => client.listTaskLists(pageToken)),
@@ -85,6 +91,7 @@ export function createGoogleMcpServer(client: GoogleTasksClient): McpServer {
         pageToken,
       },
       annotations: readAnnotations,
+      _meta: oauthMetadata,
     },
     async ({ listId, query, status, pageToken }) =>
       runOperation(() => client.search(listId, query, status, pageToken)),
@@ -97,6 +104,7 @@ export function createGoogleMcpServer(client: GoogleTasksClient): McpServer {
         'Fetch current tasks and ETags from the signed-in Google account. Refresh after a conflict before asking to retry an edit.',
       inputSchema: selection,
       annotations: readAnnotations,
+      _meta: oauthMetadata,
     },
     async ({ tasks }) => runOperation(() => client.getTasks(tasks)),
   );
@@ -112,6 +120,7 @@ export function createGoogleMcpServer(client: GoogleTasksClient): McpServer {
         title: z.string().trim().min(1).max(1024),
       },
       annotations: { ...writeAnnotations, destructiveHint: false },
+      _meta: oauthMetadata,
     },
     async ({ listId, title, ...fields }) =>
       runOperation(() => client.create(listId, title, fields)),
@@ -124,6 +133,7 @@ export function createGoogleMcpServer(client: GoogleTasksClient): McpServer {
         'Edit only requested Google task fields using its current ETag. Omit fields to preserve; null clears notes or date. Does not change completion. Do not blindly retry a conflict.',
       inputSchema: { ...mutation, ...edits },
       annotations: writeAnnotations,
+      _meta: oauthMetadata,
     },
     async ({ id, listId, expectedEtag, ...fields }) =>
       runOperation(() => client.update({ id, listId }, expectedEtag, fields)),
@@ -136,6 +146,7 @@ export function createGoogleMcpServer(client: GoogleTasksClient): McpServer {
         'Complete or reopen the specified Google task when requested, using its current ETag.',
       inputSchema: { ...mutation, completed: z.boolean() },
       annotations: writeAnnotations,
+      _meta: oauthMetadata,
     },
     async ({ id, listId, expectedEtag, completed }) =>
       runOperation(() =>
@@ -151,7 +162,7 @@ export function createGoogleMcpServer(client: GoogleTasksClient): McpServer {
         'Show focused, editable cards for up to 50 Google task references returned by search or a mutation. An empty array shows no matches.',
       inputSchema: selection,
       annotations: readAnnotations,
-      _meta: { ui: { resourceUri: taskResourceUri } },
+      _meta: { ...oauthMetadata, ui: { resourceUri: taskResourceUri } },
     },
     async ({ tasks }) => runOperation(() => client.getTasks(tasks)),
   );

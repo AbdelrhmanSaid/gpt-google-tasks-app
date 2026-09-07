@@ -19,7 +19,7 @@ npm run dev
 - MCP endpoint: http://127.0.0.1:3001/mcp
 - Health endpoint: http://127.0.0.1:3001/health
 
-The backend binds to loopback and implements stateless Streamable HTTP. Without `TASKS_MODE=google`, it runs the sample integration. Google mode enables real per-user task access through the local authenticated preview and blocks `/mcp` until hosted OAuth is implemented.
+The backend binds to loopback and implements stateless Streamable HTTP. Without `TASKS_MODE=google`, it runs the sample integration. Google mode enables real per-user task access through the authenticated preview and protects `/mcp` with app OAuth bearer tokens.
 
 ### Connect Google locally
 
@@ -32,11 +32,13 @@ npm run dev
 
 Open http://127.0.0.1:5173/google.html and connect Google. Select a task list, search or create a task, then use the embedded cards to edit, complete, or reopen it. These controls simulate a conversation for local development. Changes save to the connected Google account.
 
-Google credentials are encrypted in `apps/server/data/auth.sqlite` using the application secret. Both the database directory and `.env` are ignored by Git. Keep the secret stable across restarts. Sign out ends the browser session; it does not revoke Google's grant. Full disconnect/revocation and ChatGPT OAuth remain in the next authentication step. You can revoke the grant through Google Account connections meanwhile.
+Google credentials are encrypted in `apps/server/data/auth.sqlite` using the application secret. Both the database directory and `.env` are ignored by Git. Keep the secret stable across restarts. Sign out ends the browser session. Disconnect removes this app's grants, sessions, identity, and stored Google credentials, then attempts Google revocation. Your tasks remain in Google.
+
+The built connection page is at http://127.0.0.1:3001/connect.html. [OAuth setup](docs/oauth.md) explains client registration, consent, token validation, and disconnect behavior. ChatGPT receives separate app tokens, never Google credentials.
 
 Google tools include `list_task_lists`; task references use `(listId, id)` and mutations require `expectedEtag`. Search examines 50 tasks per page. Follow `nextPageToken` until null, even if a page has no matches. Live testing confirmed that stale ETags are rejected by Google rather than overwriting a newer edit.
 
-`npm run dev` builds the embedded widget before starting both development servers. The standalone preview updates through Vite. After changing embedded UI code, run `npm run build:widget -w @tasks/ui`, reload the integration preview, and search again to load the new resource.
+`npm run dev` builds the authentication pages and embedded widget before starting both development servers. The standalone preview updates through Vite. After changing embedded UI code, run `npm run build:widget -w @tasks/ui`, reload the integration preview, and search again to load the new resource. After changing authentication pages, rebuild the UI workspace.
 
 ## Sample MCP integration
 
@@ -87,6 +89,7 @@ npm run format:check
 npm run build
 npm run smoke -w @tasks/server
 npm run test:google -w @tasks/server
+npm run test:oauth -w @tasks/server
 npm run start -w @tasks/server
 ```
 
@@ -110,11 +113,10 @@ Component sources live in `apps/ui/src/components/ui`; CLI settings are in `apps
 
 ## Next steps
 
-1. Add ChatGPT-facing MCP OAuth and full disconnect/revocation; test authorization locally.
-2. Deploy to the VPS with HTTPS and persistent credential storage.
-3. Connect the hosted endpoint to ChatGPT and test before inviting teammates.
+1. Configure the public hostname, Google callback, and deploy to the VPS with HTTPS and persistent credential storage.
+2. Register the exact ChatGPT callback, connect the hosted endpoint, and test before inviting teammates.
 
-The [authentication design](docs/authentication.md) distinguishes the implemented Google connection from the remaining hosted OAuth flow. `NODE_ENV=production` is refused until that boundary is ready.
+The [authentication design](docs/authentication.md) and [OAuth setup](docs/oauth.md) describe the implemented authorization flow. `NODE_ENV=production` is still refused until deployment-specific public URL, proxy, and storage configuration is added.
 
 Every future task operation must resolve credentials from the authenticated server-side identity. Never trust a model-supplied user ID to choose credentials. Google remains the source of truth. Store task dates as calendar dates, not timestamps.
 

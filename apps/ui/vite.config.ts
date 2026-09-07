@@ -7,6 +7,16 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  build: {
+    rollupOptions: {
+      input: Object.fromEntries(
+        ['index', 'connect', 'consent'].map((page) => [
+          page,
+          fileURLToPath(new URL(`./${page}.html`, import.meta.url)),
+        ]),
+      ),
+    },
+  },
   server: {
     port: 5173,
     strictPort: true,

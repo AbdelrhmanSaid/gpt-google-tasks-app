@@ -11,7 +11,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "predev": "npm run build:widget -w @tasks/ui",
+    "predev": "npm run build -w @tasks/ui",
     "dev": "concurrently -k -n server,ui \"npm run dev -w @tasks/server\" \"npm run dev -w @tasks/ui\"",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",

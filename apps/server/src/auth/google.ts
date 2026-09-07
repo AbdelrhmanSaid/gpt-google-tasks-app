@@ -10,6 +10,8 @@ import type { IncomingHttpHeaders } from 'node:http';
 import type { GoogleConfig } from '../config.js';
 import { GoogleTasksError } from '../google/errors.js';
 import { GoogleTasksClient } from '../google/tasks.js';
+import { createOAuthPlugins } from './oauth.js';
+import { disconnectGoogle } from './disconnect.js';
 
 export const tasksScope = 'https://www.googleapis.com/auth/tasks';
 export const previewOrigin = 'http://127.0.0.1:5173';
@@ -29,6 +31,7 @@ export function createGoogleAuth(config: GoogleConfig) {
     database,
     trustedOrigins: [previewOrigin],
     logger: { disabled: true },
+    plugins: [...createOAuthPlugins(config)],
     socialProviders: {
       google: {
         clientId: config.clientId,
@@ -112,6 +115,38 @@ export function createGoogleAuth(config: GoogleConfig) {
     }
   }
 
+  async function getBearerUser(authorization: string | undefined) {
+    if (!authorization?.startsWith('Bearer ')) {
+      return null;
+    }
+
+    try {
+      const { userId } = await auth.api.verifyMcpToken({
+        body: { token: authorization.slice(7) },
+      });
+      const context = await auth.$context;
+      const user = await context.internalAdapter.findUserById(userId);
+
+      if (
+        !user?.emailVerified ||
+        !config.allowedEmails.has(user.email.toLowerCase())
+      ) {
+        return null;
+      }
+
+      return user;
+    } catch {
+      return null;
+    }
+  }
+
+  async function disconnect(userId: string) {
+    // Finish any token refresh before deleting its account row.
+    await pendingTokens.get(userId)?.catch(() => undefined);
+
+    return disconnectGoogle(database, config, userId);
+  }
+
   function tasksForUser(userId: string): GoogleTasksClient {
     return new GoogleTasksClient(() => {
       const pending = pendingTokens.get(userId);
@@ -129,7 +164,15 @@ export function createGoogleAuth(config: GoogleConfig) {
     });
   }
 
-  return { auth, database, getUser, tasksForUser };
+  return {
+    auth,
+    database,
+    config,
+    getUser,
+    getBearerUser,
+    disconnect,
+    tasksForUser,
+  };
 }
 
 export type GoogleAuth = ReturnType<typeof createGoogleAuth>;

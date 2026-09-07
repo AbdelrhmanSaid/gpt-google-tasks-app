@@ -1,6 +1,6 @@
 # Authentication and Google integration
 
-Status: local Google sign-in and Tasks integration implemented. Better Auth manages browser sessions and encrypted Google credentials in SQLite. `/api/google/mcp` resolves credentials from the signed-in, allowlisted user; `/mcp` refuses access in Google mode. ChatGPT-facing OAuth and full disconnect/revocation are still planned. The diagram below describes the eventual hosted flow.
+Status: Google sign-in, Tasks integration, app OAuth, and disconnect/revocation are implemented and tested locally. Better Auth manages browser sessions, encrypted Google credentials, and hashed app tokens in SQLite. `/api/google/mcp` uses a browser session for the development preview; `/mcp` requires an app bearer token. The diagram describes the implemented flow, which still needs public deployment and testing in ChatGPT. See [OAuth setup](oauth.md).
 
 ## Decisions
 
@@ -92,7 +92,7 @@ Authentication checks must cover denied consent, state mismatch/replay, missing 
 
 Google Cloud setup and the local callback are documented in [google-setup.md](google-setup.md). The immediate inputs are a Web application OAuth client ID/secret and the pilot email allowlist. The VPS hostname, SSH/deployment method, reverse proxy, and backup destination are needed at deployment time, not to design local sign-in.
 
-The environment loader and migration command are implemented. See the README for local startup. Google mode is restricted to the configured loopback URLs and production startup is refused until hosted OAuth is added.
+The environment loader and migration command are implemented. See the README for local startup. Google mode remains restricted to loopback until the public hostname, proxy, and persistent storage are configured for the VPS.
 
 ## Verified locally on 2026-09-07
 
@@ -101,4 +101,4 @@ The environment loader and migration command are implemented. See the README for
 - Google rejects stale `If-Match` ETags with HTTP 412.
 - Automated tests exercise two real Better Auth identities/sessions against a mocked Google API. Cross-account references fail under the calling user's credentials. Token routes and the public MCP endpoint cannot expose Google data.
 
-The live check left one clearly named integration test task completed. Automatic token refresh uses Better Auth's implementation; revoked/expired grants surface a reconnect error. Forced refresh, full disconnect/revocation, and ChatGPT token validation need additional lifecycle tests before deployment.
+The live check left one clearly named integration test task completed. Automatic Google token refresh uses Better Auth's implementation; revoked/expired grants surface a reconnect error. OAuth lifecycle tests now cover two synthetic users, app token rotation/revocation, disconnect, pending-code invalidation, and failed Google revocation. Browser review verified the login and consent pages. End-to-end testing inside ChatGPT still follows deployment.

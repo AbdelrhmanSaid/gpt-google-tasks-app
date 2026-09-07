@@ -10,9 +10,12 @@
     "typecheck": "tsc --noEmit",
     "smoke": "node scripts/smoke.mjs",
     "db:migrate": "tsx src/auth/migrate.ts",
-    "test:google": "node --test scripts/google.test.mjs"
+    "test:google": "node --test scripts/google.test.mjs",
+    "oauth:register": "tsx src/auth/registerClient.ts",
+    "test:oauth": "node --test scripts/oauth.test.mjs"
   },
   "dependencies": {
+    "@better-auth/oauth-provider": "^1.7.3",
     "@modelcontextprotocol/ext-apps": "^1.7.5",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@tasks/shared": "0.1.0",

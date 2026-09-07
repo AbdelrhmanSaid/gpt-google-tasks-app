@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { IntegrationPreview } from './IntegrationPreview';
+import { DisconnectGoogle } from '@/auth/DisconnectGoogle';
 
 const connectionSchema = z.object({
   authenticated: z.boolean(),
@@ -136,6 +137,14 @@ export function GooglePreview() {
             </Button>
           )}
         </div>
+        {connection?.authenticated && (
+          <DisconnectGoogle
+            onDisconnected={(text) => {
+              setConnection({ authenticated: false, user: null });
+              setMessage(text);
+            }}
+          />
+        )}
       </header>
       {connection?.authenticated && <IntegrationPreview google />}
     </>
